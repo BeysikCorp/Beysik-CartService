@@ -21,7 +21,7 @@ namespace Beysik_CartService.Controllers
             var cart = await _cartService.GetAsync(userId);
             return Ok(cart);
         }
-        [HttpPost("items")]
+        [HttpPost("items?user={userId}")]
         public async Task<IActionResult> AddItem([FromBody] CartItem newItem)
         {
             await _cartService.AddAsync(newItem);
