@@ -1,10 +1,40 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Beysik_CartService.Models;
+using SQLite;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 namespace Beysik_CartService.Services
+
 {
-    public class CartService
-    {
+        public class CartService
+        {
+        private SQLiteConnection db;
         private readonly List<CartItem> _cartItems = new();
+
+        public CartService()
+        {
+            db = new SQLiteConnection("cart.db");
+            db.CreateTable<Cart>();
+        }
+
+        public void AddCart(Cart cart)
+        {
+            db.Insert(cart);
+        }
+
+        public Cart GetItemById(int id)
+        {
+            return db.Table<Cart>().FirstOrDefault(q => q.Id == id);
+        }
+
+        public void UpdateItemById(Cart cart)
+        {
+            var existingCart = GetItemById(cart.Id);
+            if (existingCart == null)
+                throw new Exception($"Cart with id {cart.Id} not found.");
+            db.Update(cart);
+        }
 
         public Task<List<CartItem>> GetAsync() =>
             Task.FromResult(_cartItems);
