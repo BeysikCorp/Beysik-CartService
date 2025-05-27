@@ -24,6 +24,11 @@
     "Order": 0,
     "Parameters": [
       {
+        "Name": "userId",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
         "Name": "newItem",
         "Type": "Beysik_CartService.Models.CartItem",
         "IsRequired": true

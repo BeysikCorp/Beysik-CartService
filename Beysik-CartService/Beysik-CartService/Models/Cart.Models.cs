@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
+using SQLite;
 namespace Beysik_CartService.Models
 {
     public class CartItem
@@ -13,7 +15,13 @@ namespace Beysik_CartService.Models
     {
         public int Id { get; set; }
         public string? UserId { get; set; }
-        public List<CartItem> Items { get; set; } = new List<CartItem>();
+        public string ItemsJson { get; set; } = "[]";
 
+        [Ignore]
+        public List<CartItem> Items
+        {
+            get => string.IsNullOrEmpty(ItemsJson) ? new List<CartItem>() : JsonSerializer.Deserialize<List<CartItem>>(ItemsJson);
+            set => ItemsJson = JsonSerializer.Serialize(value);
+        }
     }
 }
