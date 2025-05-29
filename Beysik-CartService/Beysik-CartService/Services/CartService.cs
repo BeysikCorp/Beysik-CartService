@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 namespace Beysik_CartService.Services
 
 {
-        public class CartService
-        {
+    public class CartService
+    {
         private SQLiteConnection db;
         private readonly List<CartItem> _cartItems = new();
 
