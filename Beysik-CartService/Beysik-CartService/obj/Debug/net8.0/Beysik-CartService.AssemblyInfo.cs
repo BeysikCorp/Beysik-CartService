@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Beysik-CartService")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b8eb7823280c635a7c8f38f551a0498d7e2dd4d6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+67f12f957cc1669563ff4bfb1343c8b4fcf3571d")]
 [assembly: System.Reflection.AssemblyProductAttribute("Beysik-CartService")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Beysik-CartService")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
