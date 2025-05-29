@@ -55,3 +55,4 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+/Beysik-CartService/Beysik-CartService/cart.db

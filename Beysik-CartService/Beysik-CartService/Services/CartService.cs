@@ -7,25 +7,25 @@ using System.Threading.Tasks;
 namespace Beysik_CartService.Services
 
 {
-    public class CartService
-    {
-        private SQLiteConnection db;
+        public class CartService
+        {
+        private readonly ISQLiteConnection _db;
         private readonly List<CartItem> _cartItems = new();
 
-        public CartService()
+        public CartService(ISQLiteConnection SQLiteConnection)
         {
-            db = new SQLiteConnection("cart.db");
-            db.CreateTable<Cart>();
+            _db = SQLiteConnection;
+            _db.CreateTable<Cart>();
         }
 
         public void AddCart(Cart cart)
         {
-            db.Insert(cart);
+            _db.Insert(cart);
         }
 
         public Cart GetItemById(int id)
         {
-            return db.Table<Cart>().FirstOrDefault(q => q.Id == id);
+            return _db.Table<Cart>().FirstOrDefault(q => q.Id == id);
         }
 
         public void UpdateItemById(Cart cart)
@@ -33,7 +33,7 @@ namespace Beysik_CartService.Services
             var existingCart = GetItemById(cart.Id);
             if (existingCart == null)
                 throw new Exception($"Cart with id {cart.Id} not found.");
-            db.Update(cart);
+            _db.Update(cart);
         }
 
         public Task<List<CartItem>> GetAsync() =>
