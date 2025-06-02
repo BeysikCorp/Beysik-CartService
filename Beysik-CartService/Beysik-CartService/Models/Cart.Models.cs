@@ -5,7 +5,6 @@ namespace Beysik_CartService.Models
 {
     public class CartItem
     {
-        public int Id { get; set; }
         public string ProductId { get; set; }
         public string Name { get; set; }
         public decimal Price { get; set; }
@@ -13,9 +12,10 @@ namespace Beysik_CartService.Models
     }
     public class Cart
     {
+        [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
-        public string? UserId { get; set; }
-        public string ItemsJson { get; set; } = "[]";
+        public string UserId { get; set; }
+        public string ItemsJson { get; set; }
 
         [Ignore]
         public List<CartItem> Items

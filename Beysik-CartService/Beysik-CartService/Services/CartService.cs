@@ -4,66 +4,164 @@ using SQLite;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Beysik_Common;
+using static Beysik_Common.RabbitMqConsumerService;
+using RabbitMQ.Client;
+
 namespace Beysik_CartService.Services
 
 {
-        public class CartService
-        {
+    public class CartService
+    {
         private readonly ISQLiteConnection _db;
-        private readonly List<CartItem> _cartItems = new();
+        //private readonly List<CartItem> _cartItems = new();
+        private readonly RabbitMqHelper _rabbitMqHelper;
 
-        public CartService(ISQLiteConnection SQLiteConnection)
+        public CartService(RabbitMqEventAggregator eventAggregator, ISQLiteConnection SQLiteConnection, RabbitMqHelper rabbitMqHelper)
         {
+            eventAggregator.MessageReceived += OnMessageReceived;
             _db = SQLiteConnection;
             _db.CreateTable<Cart>();
+
+            _rabbitMqHelper = rabbitMqHelper;
         }
-
-        public void AddCart(Cart cart)
+        private void OnMessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            _db.Insert(cart);
-        }
-
-        public Cart GetItemById(int id)
-        {
-            return _db.Table<Cart>().FirstOrDefault(q => q.Id == id);
-        }
-
-        public void UpdateItemById(Cart cart)
-        {
-            var existingCart = GetItemById(cart.Id);
-            if (existingCart == null)
-                throw new Exception($"Cart with id {cart.Id} not found.");
-            _db.Update(cart);
-        }
-
-        public Task<List<CartItem>> GetAsync() =>
-            Task.FromResult(_cartItems);
-
-        public Task<CartItem?> GetAsync(string id) =>
-            Task.FromResult(_cartItems.FirstOrDefault(item => item.ProductId == id));
-
-        public Task AddAsync(CartItem newItem)
-        {
-            _cartItems.Add(newItem);
-            return Task.CompletedTask;
-        }
-
-        public Task UpdateAsync(string id, CartItem updatedItem)
-        {
-            var index = _cartItems.FindIndex(item => item.ProductId == id);
-            if (index != -1)
+            if (e == null || string.IsNullOrEmpty(e.Message))
             {
-                _cartItems[index] = updatedItem;
+                return;
+            }
+
+            List<string>? message = e.Message.Split('.').ToList();
+
+            if (e.Message.Contains("order.sucess"))
+            {
+                int orderId = int.Parse(message[0]);
+                int quantity = int.Parse(message[1]);
+            }
+            //Console.WriteLine($"Message received: {e.Message}");
+        }
+
+        public void AddCart(string userId)
+        {
+            _db.Insert(new Cart
+            {
+                UserId = userId,
+                ItemsJson = string.Empty,
+                Items = new List<CartItem>()
+            });
+        }
+
+        public Cart GetCart(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentNullException(nameof(userId));
+            var cart = _db.Table<Cart>().FirstOrDefault(q => q.UserId == userId);
+            do
+            {
+                cart = _db.Table<Cart>().FirstOrDefault(q => q.UserId == userId);
+                if (cart != null)
+                {
+                    try
+                    {
+                        cart.Items = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cart.ItemsJson) ?? new List<CartItem>();
+                    }
+                    catch
+                    {
+                        cart.Items = new List<CartItem>();
+                    }
+                }
+                else
+                {
+                    AddCart(userId);
+                }
+            }
+            while (cart == null);
+            return cart;
+        }
+
+        public Task AddItem(string userId, CartItem newItem)
+        {
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentNullException(nameof(userId));
+            var cart = GetCart(userId);
+            if (cart == null)
+                cart.Items = System.Text.Json.JsonSerializer.Deserialize<List<CartItem>>(cart.ItemsJson) ?? new List<CartItem>();
+
+            // Prevent duplicate ProductId
+            if (cart.Items.Any(item => item.ProductId == newItem.ProductId))
+            {
+                _rabbitMqHelper.PublishMessage($"{cart.Items}.cart.itemduplicate", "cart.toui",
+                    "cart.api.fromcart", ExchangeType.Topic);
+            }
+            else
+            {
+                cart.Items.Add(new CartItem
+                {
+                    ProductId = newItem.ProductId,
+                    Name = newItem.Name,
+                    Price = newItem.Price,
+                    Quantity = newItem.Quantity
+                });
+
+                UpdateCart(cart.UserId, updatedItem: newItem);
+                _rabbitMqHelper.PublishMessage($"{newItem.ProductId}.cart.itemadded", "cart.toui","cart.api.fromcart", ExchangeType.Topic);
             }
             return Task.CompletedTask;
         }
 
-        public Task RemoveAsync(string id)
+        public Task UpdateCart(string userId, CartItem updatedItem)
         {
-            var item = _cartItems.FirstOrDefault(x => x.ProductId == id);
+            var cart = GetCart(userId);
+            if (cart == null)
+                throw new KeyNotFoundException($"Cart for user {userId} not found.");
+            if (string.IsNullOrEmpty(userId))
+                throw new ArgumentNullException(nameof(userId));
+            if (updatedItem == null)
+                throw new ArgumentNullException(nameof(updatedItem));
+
+            var existingItem = cart.Items.FirstOrDefault(x => x.ProductId == updatedItem.ProductId);
+
+            if (existingItem == null)
+            {
+                throw new KeyNotFoundException($"CartItem with ProductId {updatedItem.ProductId} not found.");
+            }
+
+            existingItem = updatedItem;
+            if (cart.Items != null)
+            {
+                cart.ItemsJson = System.Text.Json.JsonSerializer.Serialize(cart.Items);
+            }
+            _db.Update(cart);
+            return Task.CompletedTask;
+        }
+
+
+        public Task RemoveItem(string productId, string userId, bool? all)
+        {
+            if(all == null)
+                all = false;
+            var cart = GetCart(userId);
+            if (string.IsNullOrEmpty(productId))
+                throw new ArgumentNullException(nameof(productId));
+
+            var item = cart.Items.FirstOrDefault(x => x.ProductId == productId);
             if (item != null)
             {
-                _cartItems.Remove(item);
+                if (all.Value == false)
+                    cart.Items = new List<CartItem>();
+                else
+                    cart.Items.Remove(item);
+                if (cart.Items != null)
+                {
+                    cart.ItemsJson = System.Text.Json.JsonSerializer.Serialize(cart.Items);
+                }
+                _db.Update(cart);
+
+            }
+            else
+            {
+                throw new KeyNotFoundException($"CartItem with ProductId {productId} not found.");
             }
             return Task.CompletedTask;
         }
