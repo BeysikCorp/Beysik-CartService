@@ -34,10 +34,11 @@ namespace Beysik_CartService.Services
 
             List<string>? message = e.Message.Split('.').ToList();
 
-            if (e.Message.Contains("order.sucess"))
+            if (e.Message.Contains("order.allocated"))
             {
                 int orderId = int.Parse(message[0]);
                 int quantity = int.Parse(message[1]);
+                
             }
             //Console.WriteLine($"Message received: {e.Message}");
         }
